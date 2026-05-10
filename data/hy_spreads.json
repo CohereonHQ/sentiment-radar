@@ -1,7 +1,7 @@
 {
   "indicator": "hy_spreads",
   "name": "HY Spreads",
-  "last_updated": "2026-05-10T17:00:32.556166+00:00",
+  "last_updated": "2026-05-10T17:20:48.222846+00:00",
   "update_cadence": "daily",
   "current_value": 2.79,
   "unit": "bp",

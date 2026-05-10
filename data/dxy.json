@@ -1,7 +1,7 @@
 {
   "indicator": "dxy",
   "name": "DXY",
-  "last_updated": "2026-05-10T17:00:33.736893+00:00",
+  "last_updated": "2026-05-10T17:20:50.015954+00:00",
   "update_cadence": "realtime",
   "current_value": 97.84,
   "unit": "",

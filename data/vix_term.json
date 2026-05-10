@@ -1,9 +1,9 @@
 {
   "indicator": "vix_term",
   "name": "VIX Term",
-  "last_updated": "2026-05-10T17:01:05.246485+00:00",
+  "last_updated": "2026-05-10T17:21:19.711477+00:00",
   "update_cadence": "daily",
-  "current_value": "unknown",
+  "current_value": "backwardation (-4.1)",
   "unit": "",
   "historical": []
 }

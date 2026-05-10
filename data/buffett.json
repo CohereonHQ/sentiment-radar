@@ -1,14 +1,14 @@
 {
   "indicator": "buffett",
   "name": "Buffett",
-  "last_updated": "2026-05-10T17:00:35.950068+00:00",
+  "last_updated": "2026-05-10T17:20:52.164369+00:00",
   "update_cadence": "quarterly",
-  "current_value": 16.1,
+  "current_value": 161.0,
   "unit": "%",
   "historical": [
     {
       "date": "2026-03-01",
-      "value": 16.1
+      "value": 161.0
     }
   ]
 }
