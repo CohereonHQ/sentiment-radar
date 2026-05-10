@@ -3,7 +3,7 @@
   "name": "VIX",
   "full_name": "CBOE Volatility Index",
   "source": "CBOE",
-  "last_updated": "2026-05-10T16:30:39.305211+00:00",
+  "last_updated": "2026-05-10T16:37:33.208637+00:00",
   "update_cadence": "daily",
   "current_value": 17.19,
   "unit": "",
