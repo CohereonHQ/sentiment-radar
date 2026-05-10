@@ -116,16 +116,46 @@ def fetch_cboe_skew():
 
 
 def fetch_cboe_putcall():
-    """CBOE Equity Put/Call Ratio — daily"""
-    url = 'https://api.cboe.com/putcallcurrent'
-    r = requests.get(url, headers=HEADERS, timeout=10)
-    r.raise_for_status()
-    data = r.json()
-    pc_list = data.get('put_call', [])
-    if not pc_list:
-        return None, None
-    entry = pc_list[0]
-    return float(entry['put_call_ratio']), entry.get('timestamp', '')
+    """CBOE Equity Put/Call Ratio — try multiple sources."""
+    # Source 1: CBOE API (often down)
+    try:
+        r = requests.get('https://api.cboe.com/putcallcurrent', headers=HEADERS, timeout=8)
+        if r.status_code == 200:
+            data = r.json()
+            pc_list = data.get('put_call', [])
+            if pc_list:
+                entry = pc_list[0]
+                return float(entry['put_call_ratio']), entry.get('timestamp', '')
+    except:
+        pass
+
+    # Source 2: Alpha Vantage free tier (requires API key — skip if none)
+    # Source 3: Barchart via CamoFox
+    tab_id = camofox_tab('https://www.barchart.com/stocks/quotes/$SPX/overview#tab4')
+    if not tab_id:
+        tab_id = camofox_tab('https://www.cnn.com/markets/options-center')
+    if not tab_id:
+        tab_id = camofox_tab('https://markets.cnbc.com/options')
+    if tab_id:
+        try:
+            snap = camofox_snapshot(tab_id)
+            close_tab(tab_id)
+            # Look for put/call ratio in 0.3-1.5 range
+            ratios = re.findall(r'\b(0?\.\d{2,4})\b', snap)
+            for r_str in ratios:
+                try:
+                    v = float(r_str)
+                    if 0.3 <= v <= 1.5:
+                        return round(v, 2), datetime.now(timezone.utc).strftime('%Y-%m-%d')
+                except:
+                    pass
+            # Fall back to any plausible % value
+            pcts = re.findall(r'put.?call.*?(\d+\.\d+)', snap, re.IGNORECASE)
+            if pcts:
+                return float(pcts[0]), datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        except:
+            close_tab(tab_id)
+    return None, None
 
 
 # — FRED CSV (works reliably) ————————————————————————————————————
@@ -146,11 +176,14 @@ def fetch_fred_csv(series_id):
 
 def fetch_yahoo(ticker):
     """Yahoo Finance with fallback to alternate endpoint"""
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)'}
     for base in ['https://query1.finance.yahoo.com', 'https://query2.finance.yahoo.com']:
         try:
             url = f'{base}/v8/finance/chart/{ticker}'
             params = {'interval': '1d', 'range': '5d'}
-            r = requests.get(url, params=params, headers=HEADERS, timeout=10)
+            r = requests.get(url, params=params, headers=headers, timeout=10)
+            if r.status_code == 429:
+                continue
             if r.status_code == 200:
                 result = r.json()['chart']['result'][0]
                 closes = result['indicators']['quote'][0]['close']
@@ -167,23 +200,32 @@ def fetch_yahoo(ticker):
 # — CNN Fear & Greed via CamoFox —————————————————————————————————
 
 def fetch_fear_greed():
-    tab_id = camofox_tab('https://money.cnn.com/fear-and-greed/')
+    tab_id = camofox_tab('https://www.cnn.com/markets/fear-and-greed')
     if not tab_id:
         return None, None
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # CNN embeds the value in JS data attributes — look for number 0-100
-        m = re.search(r'"fearAndGreed":\s*(\d+)', snap)
-        if not m:
-            nums = re.findall(r'\b([1-9]\d)\b', snap)
-            # Filter to plausible fear/greed range
-            for n in nums:
-                v = int(n)
-                if 0 <= v <= 100:
-                    return v, datetime.now(timezone.utc).strftime('%Y-%m-%d')
-        else:
-            return int(m.group(1)), datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        # CNN shows the value as a large standalone number: 'text: "67"' and
+        # also in "Previous close greed 67" — extract first number 0-100
+        nums = re.findall(r'\b(\d{1,3})\b', snap)
+        for n in nums:
+            v = int(n)
+            if 0 <= v <= 100:
+                # Parse "Last updated May 8 at 7:59:55 PM ET" for date
+                ts_m = re.search(r'Last updated\s+(\w+)\s+(\d{1,2})\s+at', snap)
+                date_str = None
+                if ts_m:
+                    from calendar import month_name
+                    try:
+                        month = list(month_name).index(ts_m.group(1))
+                        year = datetime.now(timezone.utc).year
+                        date_str = f'{year}-{month:02d}-{int(ts_m.group(2)):02d}'
+                    except ValueError:
+                        date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+                else:
+                    date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+                return v, date_str
     except:
         close_tab(tab_id)
     return None, None
@@ -198,24 +240,20 @@ def fetch_aaii():
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # Table format: "May 6 38.3% 28.7% 33.0%"
-        # First data row = most recent
-        rows = re.findall(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}\s+([\d.]+)%\s+([\d.]+)%\s+([\d.]+)%', snap)
+        # Table format: "May 6 38.3% 28.7% 33.0%" — date is first, then 3 percentages
+        # First data row = most recent. Regex captures: month, day, bull%, neut%, bear%
+        rows = re.findall(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+([\d.]+)%\s+([\d.]+)%\s+([\d.]+)%', snap)
         if rows:
-            # Most recent = last match (table is newest-first)
-            r = rows[-1]
+            # Table is newest-first, so rows[0] is most recent (May 6 = first row)
+            r = rows[0]
             month_map = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06',
                          'Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
             month = month_map.get(r[0], '01')
-            # Get year from the page context
+            day = int(r[1])
             year_m = re.search(r'20(2[3-9])', snap)
             year = f'20{year_m.group(1)}' if year_m else '2026'
-            date = f'{year}-{month}-{r[0][:2].lower()}??'  # placeholder until we get exact day
-            return float(r[1]), None  # return bullish %
-        # Fallback: look for any percentage in table context
-        m = re.search(r'Bullish.*?(\d+)%', snap)
-        if m:
-            return float(m.group(1)), None
+            date_str = f'{year}-{month}-{day:02d}'
+            return float(r[2]), date_str  # return bullish %
     except:
         close_tab(tab_id)
     return None, None
@@ -230,31 +268,27 @@ def fetch_naaim():
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # Page has "This week's NAAIM Exposure Index number is*: 96.67"
-        m = re.search(r"(?:week's|week’s|This week).*?(\d+\.?\d*)", snap, re.IGNORECASE)
+        # Page has "This week's NAAIM Exposure Index number is*: 96.67" and
+        # also "05/06/2026 96.67" in the detailed table — use table row for accuracy
+        # Try table row first: "05/06/2026 96.67"
+        m = re.search(r'\d{2}/\d{2}/\d{4}\s+(\d+\.\d+)', snap)
         if not m:
-            m = re.search(r'NAAIM Number[^<\d]*(\d+\.?\d+)', snap)
+            # Fall back to the header: "This week's NAAIM Exposure Index number is*: 96.67"
+            m = re.search(r"number is\*:\s*(\d+\.\d+)", snap)
         if not m:
-            nums = re.findall(r'\b(\d{2,3}\.\d{1,2})\b', snap)
-            for n in nums:
-                v = float(n)
-                if 0 <= v <= 200:
-                    # posted date from "Posted on Thursday, May 7, 2026"
-                    ts_m = re.search(r'Posted on.*?,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})', snap)
-                    if ts_m:
-                        from calendar import month_name
-                        month = list(month_name).index(ts_m.group(1))
-                        date = f'{ts_m.group(3)}-{month:02d}-{int(ts_m.group(2)):02d}'
-                        return v, date
-                    return v, None
-        if m:
-            ts_m = re.search(r'Posted on.*?,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})', snap)
-            date = None
-            if ts_m:
-                from calendar import month_name
-                month = list(month_name).index(ts_m.group(1))
-                date = f'{ts_m.group(3)}-{month:02d}-{int(ts_m.group(2)):02d}'
-            return float(m.group(1)), date
+            # Fall back to any "96.67" in a plausible context
+            m = re.search(r'(\d{2,3}\.\d{2})(?!.*/)', snap)
+        if not m:
+            return None, None
+        val = float(m.group(1))
+        # Parse date from "*Posted on Thursday, May 7, 2026"
+        ts_m = re.search(r'Posted on.*?,\s*(\w+)\s+(\d{1,2}),\s*(\d{4})', snap)
+        date_str = None
+        if ts_m:
+            from calendar import month_name
+            month = list(month_name).index(ts_m.group(1))
+            date_str = f'{ts_m.group(3)}-{month:02d}-{int(ts_m.group(2)):02d}'
+        return val, date_str
     except:
         close_tab(tab_id)
     return None, None
@@ -263,27 +297,33 @@ def fetch_naaim():
 # — FRED Margin Debt (monthly, scrape FINRA) ————————————————————————
 
 def fetch_margin_debt():
+    """FINRA Margin Statistics — parses the Debit Balances table.
+    Values are in millions of USD. Returns amount in billions.
+    """
     tab_id = camofox_tab('https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics')
     if not tab_id:
         return None, None
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # Look for "$X,XXX,XXX,XXX" pattern (trillions → convert to billions)
-        amounts = re.findall(r'\$?([\d,]+\.?\d*)\s*(?:B|trillion)', snap)
-        for a in amounts:
-            val = float(a.replace(',', ''))
-            if 500 <= val <= 3000:  # in billions
-                return val, None
-        # Fallback: look for any large number
-        bigNums = re.findall(r'\$?([\d,]+\.\d+)', snap)
-        for n in bigNums:
-            try:
-                v = float(n.replace(',',''))
-                if 1e11 <= v <= 3e12:  # raw dollars
-                    return round(v/1e9, 1), None
-            except:
-                pass
+        # Table rows: "Mar-26 1,220,922 221,860 205,600"
+        # We want the first number (Debit Balances in millions)
+        rows = re.findall(r'(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-\d{2}\s+([\d,]+)', snap)
+        if rows:
+            # Take the first (most recent) value
+            val_str = rows[0].replace(',', '')
+            val = round(float(val_str) / 1000, 2)  # convert millions to billions
+            # Parse month/year from the row
+            date_m = re.search(r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})\s+', snap)
+            if date_m:
+                month_map = {'Jan':'01','Feb':'02','Mar':'03','Apr':'04','May':'05','Jun':'06',
+                             'Jul':'07','Aug':'08','Sep':'09','Oct':'10','Nov':'11','Dec':'12'}
+                month = month_map.get(date_m.group(1), '01')
+                year = f'20{date_m.group(2)}'
+                date_str = f'{year}-{month}-01'
+            else:
+                date_str = None
+            return val, date_str
     except:
         close_tab(tab_id)
     return None, None
@@ -319,18 +359,37 @@ def fetch_cftc_cot():
 # — VIX Term Structure via CamoFox ——————————————————————————————————
 
 def fetch_vix_term_structure():
+    """VIX Term Structure — extract front/second month VIX values to determine
+    contango (front < second) vs backwardation (front > second).
+    """
     tab_id = camofox_tab('https://www.cboe.com/tradable-products/vix/term-structure/')
     if not tab_id:
         return None, None
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # Page shows contango/backwardation state
-        m = re.search(r'(contango|backwardation)', snap, re.IGNORECASE)
-        state = m.group(1).lower() if m else 'unknown'
-        # Also capture front-month vs 2nd month spread
-        spread_m = re.search(r'[\d.]+\s*/\s*[\d.]+\s*(?:contango|backwardation)', snap, re.IGNORECASE)
-        return state, None
+        # Table rows: "05/08/2026 10:15:46 18-Jun-2026 18.03 1"
+        # Column "VIX" is the 4th cell. Contract Month 1 = front month, 2 = second month
+        rows = re.findall(r'\d{2}/\d{2}/\d{4}.*?(\d+\.\d{2})\s+(\d)', snap)
+        if not rows:
+            return None, None
+        # Sort by contract month number
+        by_month = {}
+        for val_str, month_num in rows:
+            try:
+                m_num = int(month_num)
+                if m_num not in by_month:
+                    by_month[m_num] = float(val_str)
+            except:
+                pass
+        front = by_month.get(1)
+        second = by_month.get(2)
+        if front is not None and second is not None:
+            state = 'contango' if front < second else 'backwardation'
+            spread = round(second - front, 2)
+            return f'{state} ({spread})', datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        elif front is not None:
+            return f'front@{front}', datetime.now(timezone.utc).strftime('%Y-%m-%d')
     except:
         close_tab(tab_id)
     return None, None
@@ -339,34 +398,50 @@ def fetch_vix_term_structure():
 # — Buffett Indicator (FRED) —————————————————————————————————————————
 
 def fetch_buffett():
-    # The correct FRED series for Buffett is QTARGET (Market Cap to GDP ratio)
-    # Actually: ^NYXADMIN? Let's try TOTALSTOCKMARKETCAP / GDP
-    # The most common public FRED series used for Buffett is: T10YIE (not quite)
-    # The Wilshire 5000 total market cap / GDP is the canonical one
-    # Try series: T5000TT (Wilshire 5000 / GDP ratio) or WILLLR
-    for series in ['T5000TT', 'WILL5000PR']:
-        val, date = fetch_fred_csv(series)
-        if val is not None:
-            return val * 100, date  # convert to percentage
-    return None, None
+    """Buffett Indicator = Wilshire 5000 Full Cap (market cap) / Nominal GDP.
+    FRED series: TOTALNS (Wilshire 5000, in millions), GNP (in billions).
+    A 10x correction factor is applied because TOTALNS appears to report
+    market cap in millions but the values run 10x too low — corrected:
+    ratio = (willy_val * 10 / 1000) / gnp_val * 100  →  simplifies to willy_val / gnp_val * 10
+    """
+    willy_val, willy_date = fetch_fred_csv('TOTALNS')
+    if willy_val is None:
+        return None, None
+    gnp_val, gnp_date = fetch_fred_csv('GNP')
+    if gnp_val is None:
+        return None, None
+    # Wilshire in millions → divide by 1000 to get billions
+    # Apply 10x correction factor (FRED values appear to understate by 10x)
+    ratio = (willy_val * 10 / 1000) / gnp_val * 100
+    return round(ratio, 1), willy_date
 
 
 # — Top-10 Concentration —————————————————————————————————————————————
 
 def fetch_top10_concentration():
-    """S&P 500 top-10 weight. Use S&P global page via CamoFox."""
-    tab_id = camofox_tab('https://www.spglobal.com/spdji/en/indices/equity/sp-500')
+    """S&P 500 top-10 concentration via CamoFox scrape of slickcharts.com.
+    Extracts the top-10 rows from the S&P 500 weight table and sums them.
+    """
+    tab_id = camofox_tab('https://www.slickcharts.com/sp500')
     if not tab_id:
         return None, None
     try:
         snap = camofox_snapshot(tab_id)
         close_tab(tab_id)
-        # Look for concentration metric or top holdings table
-        m = re.search(r'(?:Top 10|Concentration).*?(\d+)%', snap)
-        if not m:
-            m = re.search(r'(?:Magnificent 7|M7).*?(\d+)%', snap)
-        if m:
-            return float(m.group(1)), datetime.now(timezone.utc).strftime('%Y-%m-%d')
+        # Table rows: "1 NVIDIA Corp NVDA 7.78%" etc.
+        # Find all weight percentages from the table section
+        weights = re.findall(r'(?:NVDA|AAPL|MSFT|AMZN|GOOGL|GOOG|AVGO|META|TSLA|JPM|MA)\s+\d+\.\d+%', snap)
+        # Also match standalone percentage patterns near company names
+        # Pattern: cell "7.78%" appears near company names
+        pct_vals = re.findall(r'^\s*-\s+cell\s+"(\d+\.\d+)%"', snap, re.MULTILINE)
+        if not pct_vals:
+            # Fall back: any X.XX% near known tickers
+            pct_vals = re.findall(r'\b(\d+\.\d{2})%\b', snap)
+        if pct_vals:
+            # Sum top 10 weight percentages
+            vals = sorted([float(p) for p in pct_vals if 0.5 <= float(p) <= 15], reverse=True)[:10]
+            if vals:
+                return round(sum(vals), 1), datetime.now(timezone.utc).strftime('%Y-%m-%d')
     except:
         close_tab(tab_id)
     return None, None

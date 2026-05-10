@@ -1,11 +1,15 @@
 {
   "indicator": "aaii",
   "name": "AAII Bullish",
-  "last_updated": "2026-05-10T17:20:53.785224+00:00",
+  "last_updated": "2026-05-10T17:38:50.657771+00:00",
   "update_cadence": "weekly",
-  "current_value": 44.1,
+  "current_value": 38.3,
   "unit": "%",
   "historical": [
+    {
+      "date": "2026-05-06",
+      "value": 38.3
+    },
     {
       "date": "2026-05-10",
       "value": 44.1
