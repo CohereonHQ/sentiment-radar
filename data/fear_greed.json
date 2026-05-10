@@ -1,0 +1,9 @@
+{
+  "indicator": "fear_greed",
+  "name": "Fear & Greed",
+  "last_updated": "2026-05-10T16:30:52.913394+00:00",
+  "update_cadence": "daily",
+  "current_value": null,
+  "unit": "/100",
+  "historical": []
+}

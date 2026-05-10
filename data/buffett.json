@@ -1,0 +1,9 @@
+{
+  "indicator": "buffett",
+  "name": "Buffett",
+  "last_updated": "2026-05-10T16:31:01.865527+00:00",
+  "update_cadence": "quarterly",
+  "current_value": null,
+  "unit": "%",
+  "historical": []
+}

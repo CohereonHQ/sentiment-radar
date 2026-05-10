@@ -1,0 +1,14 @@
+{
+  "indicator": "skew",
+  "name": "SKEW",
+  "last_updated": "2026-05-10T16:30:46.077924+00:00",
+  "update_cadence": "daily",
+  "current_value": 138.21,
+  "unit": "",
+  "historical": [
+    {
+      "date": "2026-05-08",
+      "value": 138.21
+    }
+  ]
+}

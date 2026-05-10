@@ -1,0 +1,9 @@
+{
+  "indicator": "cftc_cot",
+  "name": "CFTC COT",
+  "last_updated": "2026-05-10T16:32:16.232470+00:00",
+  "update_cadence": "weekly",
+  "current_value": null,
+  "unit": "",
+  "historical": []
+}

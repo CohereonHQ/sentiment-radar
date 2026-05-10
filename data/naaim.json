@@ -1,0 +1,14 @@
+{
+  "indicator": "naaim",
+  "name": "NAAIM",
+  "last_updated": "2026-05-10T16:31:10.155779+00:00",
+  "update_cadence": "weekly",
+  "current_value": 4.0,
+  "unit": "",
+  "historical": [
+    {
+      "date": "2026-05-07",
+      "value": 4.0
+    }
+  ]
+}
