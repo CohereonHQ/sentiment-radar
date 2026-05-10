@@ -1,7 +1,7 @@
 {
   "indicator": "putcall",
   "name": "Put/Call Ratio",
-  "last_updated": "2026-05-10T16:50:56.545234+00:00",
+  "last_updated": "2026-05-10T16:52:56.259536+00:00",
   "update_cadence": "daily",
   "current_value": null,
   "unit": "",

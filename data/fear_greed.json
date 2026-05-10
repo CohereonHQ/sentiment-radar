@@ -1,7 +1,7 @@
 {
   "indicator": "fear_greed",
   "name": "Fear & Greed",
-  "last_updated": "2026-05-10T16:51:02.882464+00:00",
+  "last_updated": "2026-05-10T16:53:02.605418+00:00",
   "update_cadence": "daily",
   "current_value": 49,
   "unit": "/100",

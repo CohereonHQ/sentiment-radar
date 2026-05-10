@@ -1,7 +1,7 @@
 {
   "indicator": "margin_debt",
   "name": "Margin Debt",
-  "last_updated": "2026-05-10T16:51:26.562371+00:00",
+  "last_updated": "2026-05-10T16:53:25.925900+00:00",
   "update_cadence": "monthly",
   "current_value": null,
   "unit": "B",
