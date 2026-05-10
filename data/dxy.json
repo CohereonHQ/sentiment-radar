@@ -1,0 +1,14 @@
+{
+  "indicator": "dxy",
+  "name": "DXY",
+  "last_updated": "2026-05-10T16:16:20.775926+00:00",
+  "update_cadence": "realtime",
+  "current_value": 97.83999633789062,
+  "unit": "",
+  "historical": [
+    {
+      "date": "2026-05-08",
+      "value": 97.83999633789062
+    }
+  ]
+}

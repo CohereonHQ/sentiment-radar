@@ -1,0 +1,14 @@
+{
+  "indicator": "gold",
+  "name": "Gold",
+  "last_updated": "2026-05-10T16:16:21.898493+00:00",
+  "update_cadence": "realtime",
+  "current_value": 4730.7001953125,
+  "unit": "",
+  "historical": [
+    {
+      "date": "2026-05-08",
+      "value": 4730.7001953125
+    }
+  ]
+}
