@@ -1,9 +1,14 @@
 {
   "indicator": "top10",
   "name": "Top-10 Conc.",
-  "last_updated": "2026-05-10T16:53:44.046163+00:00",
+  "last_updated": "2026-05-10T17:01:11.618626+00:00",
   "update_cadence": "daily",
-  "current_value": null,
+  "current_value": 39.6,
   "unit": "%",
-  "historical": []
+  "historical": [
+    {
+      "date": "2026-05-10",
+      "value": 39.6
+    }
+  ]
 }
