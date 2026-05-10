@@ -1,0 +1,24 @@
+{
+  "indicator": "vix",
+  "name": "VIX",
+  "full_name": "CBOE Volatility Index",
+  "source": "CBOE",
+  "last_updated": "2026-05-10T18:30:00Z",
+  "update_cadence": "realtime",
+  "current_value": null,
+  "unit": "index",
+  "description": "Measures SPX implied volatility — the classic fear gauge. Spikes above 45 signal elevated stress.",
+  "signal_bands": {
+    "fear": 30,
+    "neutral_high": 20,
+    "neutral_low": 12,
+    "greed": 12
+  },
+  "historical": [],
+  "metadata": {
+    "color": "#e74c3c",
+    "chart_type": "line",
+    "y_axis_min": 0,
+    "y_axis_max": 80
+  }
+}

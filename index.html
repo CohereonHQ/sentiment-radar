@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sentiment Radar</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0f1117;
+      --bg-secondary: #161b27;
+      --bg-card: #1a1f2e;
+      --text-primary: #e8eaf0;
+      --text-secondary: #8892a4;
+      --border: #252d3d;
+      --fear: #e74c3c;
+      --greed: #27ae60;
+      --neutral: #f39c12;
+      --accent: #3498db;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      letter-spacing: -0.5px;
+    }
+    .subtitle {
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .card-source {
+      font-size: 11px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .current-value {
+      font-size: 36px;
+      font-weight: 700;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .current-value.fear { color: var(--fear); }
+    .current-value.neutral { color: var(--neutral); }
+    .current-value.greed { color: var(--greed); }
+    .value-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 16px;
+    }
+    .verdict {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+    .verdict.fear { background: rgba(231,76,60,0.15); color: var(--fear); }
+    .verdict.neutral { background: rgba(243,156,18,0.15); color: var(--neutral); }
+    .verdict.greed { background: rgba(39,174,96,0.15); color: var(--greed); }
+    .chart-container {
+      height: 200px;
+      position: relative;
+    }
+    .card-full { grid-column: 1 / -1; }
+    .card-wide { grid-column: span 2; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .card-wide { grid-column: 1; }
+    }
+    .status-bar {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .status-item {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-dot.ok { background: var(--greed); }
+    .status-dot.stale { background: var(--neutral); }
+    .status-dot.due { background: var(--fear); }
+  </style>
+</head>
+<body>
+  <h1>Sentiment Radar</h1>
+  <p class="subtitle">AI market sentiment tracker — 16 indicators across volatility, positioning, credit &amp; valuation</p>
+
+  <div class="status-bar" id="statusBar">
+    <div class="status-item">⏳ Pull latest data from GitHub to refresh</div>
+  </div>
+
+  <div class="grid" id="dashboard">
+    <!-- Cards injected by JS -->
+  </div>
+
+<script>
+// ─── Indicator config ────────────────────────────────────────────
+const INDICATORS = [
+  {
+    id: 'vix', name: 'VIX', source: 'CBOE',
+    color: '#e74c3c', unit: '',
+    bands: { fear: 30, neutral_high: 20, neutral_low: 12, greed: 12 },
+    yMin: 0, yMax: 80,
+    description: 'Implied volatility — fear gauge'
+  },
+  {
+    id: 'skew', name: 'SKEW', source: 'CBOE',
+    color: '#9b59b6', unit: '',
+    bands: { fear: 140, neutral_high: 120, neutral_low: 110, greed: 110 },
+    yMin: 90, yMax: 170,
+    description: 'Tail risk paranoia'
+  },
+  {
+    id: 'putcall', name: 'Put/Call Ratio', source: 'CBOE',
+    color: '#3498db', unit: '',
+    bands: { fear: 1.2, neutral_high: 1.0, neutral_low: 0.8, greed: 0.8 },
+    yMin: 0.3, yMax: 1.8,
+    description: 'Put buying vs call buying — contrarian'
+  },
+  {
+    id: 'fear_greed', name: 'Fear & Greed', source: 'CNN',
+    color: '#f39c12', unit: '/100',
+    bands: { fear: 25, neutral_high: 50, neutral_low: 50, greed: 75 },
+    yMin: 0, yMax: 100,
+    description: 'Crowdsourced sentiment'
+  },
+  {
+    id: 'hy_spreads', name: 'HY Spreads', source: 'ICE BofA',
+    color: '#e67e22', unit: 'bp',
+    bands: { fear: 500, neutral_high: 350, neutral_low: 300, greed: 300 },
+    yMin: 0, yMax: 800,
+    description: 'High yield credit spread'
+  },
+  {
+    id: 'dxy', name: 'DXY', source: 'ICE',
+    color: '#1abc9c', unit: '',
+    bands: { fear: 108, neutral_high: 100, neutral_low: 95, greed: 95 },
+    yMin: 85, yMax: 120,
+    description: 'Dollar strength — risk-on/off'
+  },
+  {
+    id: 'gold', name: 'Gold', source: 'USD',
+    color: '#f1c40f', unit: '',
+    bands: { fear: 2500, neutral_high: 2000, neutral_low: 1800, greed: 1800 },
+    yMin: 1600, yMax: 3000,
+    description: 'Safe haven'
+  },
+  {
+    id: 'aaii', name: 'AAII Bullish', source: 'AAII',
+    color: '#2ecc71', unit: '%',
+    bands: { fear: 30, neutral_high: 45, neutral_low: 45, greed: 55 },
+    yMin: 10, yMax: 70,
+    description: 'Retail bullish % — contrarian'
+  },
+  {
+    id: 'margin_debt', name: 'Margin Debt', source: 'FINRA',
+    color: '#e74c3c', unit: 'B',
+    bands: { fear: 900, neutral_high: 700, neutral_low: 500, greed: 500 },
+    yMin: 0, yMax: 1400,
+    description: 'Total margin debt'
+  },
+  {
+    id: 'buffett', name: 'Buffett', source: 'FRED',
+    color: '#8e44ad', unit: '%',
+    bands: { fear: 180, neutral_high: 150, neutral_low: 120, greed: 120 },
+    yMin: 50, yMax: 250,
+    description: 'Market cap / GDP'
+  }
+];
+
+// ─── Verdict logic ────────────────────────────────────────────────
+function getVerdict(id, value, bands) {
+  if (value === null || value === undefined) return { label: 'No Data', class: 'neutral' };
+  if (id === 'aaii') {
+    if (value > bands.greed) return { label: 'Extreme Greed', class: 'greed' };
+    if (value > bands.neutral_high) return { label: 'Greed', class: 'greed' };
+    if (value < bands.fear) return { label: 'Extreme Fear', class: 'fear' };
+    if (value < bands.neutral_low) return { label: 'Fear', class: 'fear' };
+    return { label: 'Neutral', class: 'neutral' };
+  }
+  // For VIX, SKEW, HY spreads — higher = more fear
+  if (id === 'vix' || id === 'skew' || id === 'hy_spreads' || id === 'margin_debt' || id === 'buffett') {
+    if (value >= bands.fear) return { label: 'Fear', class: 'fear' };
+    if (value >= bands.neutral_high) return { label: 'Elevated', class: 'neutral' };
+    if (value <= bands.neutral_low) return { label: 'Greed', class: 'greed' };
+    return { label: 'Neutral', class: 'neutral' };
+  }
+  // For fear_greed, aaii — reading already encodes direction
+  if (id === 'fear_greed') {
+    if (value < 25) return { label: 'Extreme Fear', class: 'fear' };
+    if (value < 50) return { label: 'Fear', class: 'fear' };
+    if (value > 75) return { label: 'Extreme Greed', class: 'greed' };
+    if (value > 50) return { label: 'Greed', class: 'greed' };
+    return { label: 'Neutral', class: 'neutral' };
+  }
+  return { label: 'Neutral', class: 'neutral' };
+}
+
+function getValueClass(value, bands) {
+  if (value === null) return '';
+  if (value >= bands.fear) return 'fear';
+  if (value <= bands.greed) return 'greed';
+  return 'neutral';
+}
+
+// ─── Load data ────────────────────────────────────────────────────
+async function loadData(id) {
+  try {
+    const r = await fetch(`data/${id}.json`);
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  }
+}
+
+// ─── Render ───────────────────────────────────────────────────────
+function renderCard(ind, data) {
+  const value = data?.current_value ?? data?.historical?.[data.historical.length-1]?.value ?? null;
+  const verdict = getVerdict(ind.id, value, ind.bands);
+  const unit = ind.unit || '';
+  const lastUpdated = data?.last_updated
+    ? new Date(data.last_updated).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : 'No data';
+
+  return `
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${ind.name}</div>
+          <div class="card-source">${ind.source} · ${ind.description}</div>
+        </div>
+      </div>
+      <div class="current-value ${getValueClass(value, ind.bands)}">${value !== null ? value.toFixed(2) + unit : '—'}</div>
+      <div class="value-label">Last updated: ${lastUpdated}</div>
+      <div class="verdict ${verdict.class}">${verdict.label}</div>
+      <div class="chart-container">
+        <canvas id="chart_${ind.id}"></canvas>
+      </div>
+    </div>
+  `;
+}
+
+function renderStatus(dataMap) {
+  const counts = { ok: 0, stale: 0, due: 0 };
+  for (const [id, data] of Object.entries(dataMap)) {
+    if (!data) { counts.stale++; continue; }
+    const now = Date.now();
+    const updated = new Date(data.last_updated).getTime();
+    const age = now - updated;
+    const threshold = { realtime: 3600000, daily: 86400000, weekly: 604800000, monthly: 2592000000 }[data.update_cadence] || 86400000;
+    if (age < threshold) counts.ok++;
+    else counts.stale++;
+  }
+  return `
+    <div class="status-item"><span class="status-dot ok"></span>${counts.ok} current</div>
+    <div class="status-item"><span class="status-dot stale"></span>${counts.stale} stale</div>
+  `;
+}
+
+// ─── Chart.js setup ───────────────────────────────────────────────
+function buildChart(canvasId, historical, ind) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  const labels = historical.map(d => d.date);
+  const values = historical.map(d => d.value);
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: ind.color,
+        backgroundColor: ind.color + '18',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+      scales: {
+        x: {
+          type: 'time',
+          grid: { color: '#252d3d', drawBorder: false },
+          ticks: { color: '#8892a4', maxTicksLimit: 6, maxRotation: 0 }
+        },
+        y: {
+          min: ind.yMin,
+          max: ind.yMax,
+          grid: { color: '#252d3d', drawBorder: false },
+          ticks: { color: '#8892a4', maxTicksLimit: 5 }
+        }
+      }
+    }
+  });
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+async function init() {
+  const grid = document.getElementById('dashboard');
+  const dataMap = {};
+
+  for (const ind of INDICATORS) {
+    const data = await loadData(ind.id);
+    dataMap[ind.id] = data;
+    grid.innerHTML += renderCard(ind, data);
+  }
+
+  document.getElementById('statusBar').innerHTML = renderStatus(dataMap);
+
+  for (const ind of INDICATORS) {
+    const data = dataMap[ind.id];
+    if (data?.historical?.length > 0) {
+      buildChart(`chart_${ind.id}`, data.historical, ind);
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

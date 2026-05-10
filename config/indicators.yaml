@@ -1,0 +1,159 @@
+vix:
+  name: "VIX"
+  full_name: "CBOE Volatility Index"
+  source: "CBOE"
+  url: "https://api.cboe.com/vixcurrent"
+  method: "api"
+  cadence: "realtime"
+  description: "Measures SPX implied volatility — the classic fear gauge. Spikes above 45 signal elevated stress."
+  historical_available: true
+
+fear_greed:
+  name: "Fear & Greed Index"
+  full_name: "CNN Money Fear & Greed Index"
+  source: "CNN"
+  url: "https://money.cnn.com/fear-and-greed/"
+  method: "scrape"
+  cadence: "daily"
+  description: "Crowdsourced + behavioral mix. 0-100 scale, updated daily."
+  historical_available: true
+
+putcall:
+  name: "Equity Put/Call Ratio"
+  full_name: "CBOE Equity Put/Call Ratio"
+  source: "CBOE"
+  url: "https://api.cboe.com/putcallcurrent"
+  method: "api"
+  cadence: "daily"
+  description: "Put volume / Call volume. >1.2 = fear (buy signal), <0.8 = greed (sell signal)."
+  historical_available: true
+
+skew:
+  name: "CBOE SKEW Index"
+  full_name: "CBOE SKEW Index"
+  source: "CBOE"
+  url: "https://api.cboe.com/skewcurrent"
+  method: "api"
+  cadence: "realtime"
+  description: "Measures tail-risk paranoia. >130 = extreme crash fear."
+  historical_available: true
+
+aaii:
+  name: "AAII Sentiment Survey"
+  full_name: "AAII Investor Sentiment Survey"
+  source: "AAII"
+  url: "https://www.aaii.com/sentiments/sentiments_history"
+  method: "scrape"
+  cadence: "weekly"
+  description: "Weekly retail investor bullish/bearish/neutral. Contrarian at extremes."
+  historical_available: true
+
+hy_spreads:
+  name: "HY Credit Spreads"
+  full_name: "ICE BofA US High Yield Index Option-Adjusted Spread"
+  source: "FRED"
+  url: "https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2"
+  method: "csv"
+  cadence: "daily"
+  description: "High yield spread. Widens = stress, tightens = complacency."
+  historical_available: true
+
+dxy:
+  name: "DXY Dollar Index"
+  full_name: "US Dollar Index"
+  source: "Yahoo Finance"
+  url: "https://query1.finance.yahoo.com/v8/finance/chart/DX-Y.NYB"
+  method: "api"
+  cadence: "realtime"
+  description: "Strong dollar = risk-off, weak dollar = risk-on."
+  historical_available: true
+
+gold:
+  name: "Gold (XAU/USD)"
+  full_name: "Gold Spot Price"
+  source: "Yahoo Finance"
+  url: "https://query1.finance.yahoo.com/v8/finance/chart/GC%3DF"
+  method: "api"
+  cadence: "realtime"
+  description: "Safe haven. Spikes on crisis fear."
+  historical_available: true
+
+margin_debt:
+  name: "FINRA Margin Debt"
+  full_name: "FINRA Investor Margin Debt"
+  source: "FINRA"
+  url: "https://www.finra.org/rules-guidance/key-topics/margin-accounts/margin-statistics"
+  method: "scrape"
+  cadence: "monthly"
+  description: "Total margin debt. Peaks at market tops."
+  historical_available: true
+
+cftc_cot:
+  name: "CFTC Commitment of Traders"
+  full_name: "CFTC COT Report"
+  source: "CFTC"
+  url: "https://www.cftc.gov/MarketReports/CommitmentsofTraders/index.htm"
+  method: "scrape"
+  cadence: "weekly"
+  description: "Smart money positioning. Commercials vs specs."
+  historical_available: true
+
+naaim:
+  name: "NAAIM Exposure Index"
+  full_name: "National Association of Active Investment Managers Exposure Index"
+  source: "StockCharts"
+  url: "https://stockcharts.com/freechart/symbols.html"
+  method: "scrape"
+  cadence: "weekly"
+  description: "Active manager long exposure. High = risk-on, low = defensive."
+  historical_available: true
+
+buffett:
+  name: "Buffett Indicator"
+  full_name: "Total Market Cap / GDP"
+  source: "FRED"
+  url: "https://fred.stlouisfed.org/graph/fredgraph.csv?id=TCEMO"
+  method: "csv"
+  cadence: "quarterly"
+  description: "Long-horizon valuation. Currently ~230% = elevated."
+  historical_available: true
+
+insider:
+  name: "Corporate Insider Buying"
+  full_name: "SEC Form 4 Insider Transactions"
+  source: "SEC"
+  url: "https://www.sec.gov/structureddata/rss/insider-transactions"
+  method: "scrape"
+  cadence: "daily"
+  description: "C-level buys of $100k+. 10-day signal."
+  historical_available: true
+
+short_interest:
+  name: "Short Interest"
+  full_name: "FINRA Short Interest"
+  source: "FINRA"
+  url: "https://www.finra.org/finra-data/bulk-page/short-sale-volume-data"
+  method: "scrape"
+  cadence: "biweekly"
+  description: "High short interest = squeeze fuel. Not directional."
+  historical_available: true
+
+top10_concentration:
+  name: "Top-10 Concentration"
+  full_name: "S&P 500 Top-10 Weight"
+  source: "S&P Global"
+  url: "https://www.spglobal.com/spdji/en/indices/equity/sp-500"
+  method: "scrape"
+  cadence: "daily"
+  description: "When top-10 dominates >30% of index = passive flow extremes."
+  historical_available: true
+
+vix_term_structure:
+  name: "VIX Term Structure"
+  full_name: "VIX Futures Curve"
+  source: "CBOE"
+  url: "https://api.cboe.com/vixcurrent"
+  method: "api"
+  cadence: "realtime"
+  description: "Contango = normal, backwardation = stress. Backwardation precedes drawdowns."
+  historical_available: true
